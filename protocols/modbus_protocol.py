@@ -17,21 +17,25 @@ class ModbusProtocol:
     # =========================
 
     def build_frame(self, function, payload):
-        frame = (
-            bytes([self.address]) +
-            bytes([function]) +
-            payload +
-            self.matricula
-        )
 
-        crc = crc16(frame)
+    # CRC SEM matrícula
+    crc_data = (
+        bytes([self.address]) +
+        bytes([function]) +
+        payload
+    )
 
-        print(f"CRC Calculado: 0x{crc:04X}")
+    crc = crc16(crc_data)
 
-        # CRC little-endian
-        frame += struct.pack('<H', crc)
+    print(f"CRC Calculado: 0x{crc:04X}")
 
-        return frame
+    frame = (
+        crc_data +
+        self.matricula +
+        struct.pack('<H', crc)
+    )
+
+    return frame
 
     def validate_crc(self, data):
         if len(data) < 2:
