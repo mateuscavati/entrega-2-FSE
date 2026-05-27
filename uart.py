@@ -1,5 +1,4 @@
 import serial
-import time
 
 
 class UART:
@@ -22,19 +21,6 @@ class UART:
 
     def receive(self, size: int):
         data = self.ser.read(size)
-
-        if len(data) == 0:
-            print("[ERRO] Timeout")
-            return b''
-
-        print("RX:", data.hex(' ').upper())
-
-        return data
-
-    def receive_all(self):
-        time.sleep(0.1)
-
-        data = self.ser.read_all()
 
         if len(data) == 0:
             print("[ERRO] Timeout")
