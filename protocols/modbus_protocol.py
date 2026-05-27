@@ -7,41 +7,40 @@ class ModbusProtocol:
     def __init__(self, uart):
         self.uart = uart
 
-        # TESTAR 0x00 PRIMEIRO
+        # Endereço MODBUS do dispositivo
         self.address = 0x01
 
+        # Matrícula: 222006991 -> últimos 6 dígitos
         self.matricula = bytes([0, 0, 6, 9, 9, 1])
 
-    # =========================
+    # =====================================
     # UTILITÁRIOS
-    # =========================
+    # =====================================
 
     def build_frame(self, function, payload):
 
-    # CRC SEM matrícula
-        crc_data = (
+        frame = (
             bytes([self.address]) +
             bytes([function]) +
-            payload
+            payload +
+            self.matricula
         )
 
-        crc = crc16(crc_data)
+        crc = crc16(frame)
 
         print(f"CRC Calculado: 0x{crc:04X}")
 
-        frame = (
-            crc_data +
-            self.matricula +
-            struct.pack('<H', crc)
-    )
+        # CRC BIG ENDIAN
+        frame += struct.pack('>H', crc)
 
         return frame
 
     def validate_crc(self, data):
+
         if len(data) < 2:
             return False
 
-        received_crc = struct.unpack('<H', data[-2:])[0]
+        received_crc = struct.unpack('>H', data[-2:])[0]
 
         calc_crc = crc16(data[:-2])
 
@@ -51,12 +50,14 @@ class ModbusProtocol:
         return received_crc == calc_crc
 
     def check_exception(self, data):
+
         if len(data) < 3:
             return False
 
         function = data[1]
 
         if function & 0x80:
+
             code = data[2]
 
             print(f"[ERRO MODBUS] Código de exceção: {code}")
@@ -65,18 +66,38 @@ class ModbusProtocol:
 
         return False
 
-    # =========================
+    # =====================================
+    # LEITURA SEGURA UART
+    # =====================================
+
+    def read_exact(self, size):
+
+        data = b''
+
+        while len(data) < size:
+
+            chunk = self.uart.receive(size - len(data))
+
+            if len(chunk) == 0:
+                break
+
+            data += chunk
+
+        return data
+
+    # =====================================
     # SOLICITA INT
-    # =========================
+    # =====================================
 
     def request_int(self):
+
         payload = bytes([0xA1])
 
         frame = self.build_frame(0x23, payload)
 
         self.uart.send(frame)
 
-        resp = self.uart.receive(8)
+        resp = self.read_exact(8)
 
         if len(resp) != 8:
             print("[ERRO] Resposta inválida")
@@ -94,18 +115,19 @@ class ModbusProtocol:
         print("CRC OK")
         print(f"Inteiro recebido: {value}")
 
-    # =========================
+    # =====================================
     # SOLICITA FLOAT
-    # =========================
+    # =====================================
 
     def request_float(self):
+
         payload = bytes([0xA2])
 
         frame = self.build_frame(0x23, payload)
 
         self.uart.send(frame)
 
-        resp = self.uart.receive(8)
+        resp = self.read_exact(8)
 
         if len(resp) != 8:
             print("[ERRO] Resposta inválida")
@@ -123,18 +145,19 @@ class ModbusProtocol:
         print("CRC OK")
         print(f"Float recebido: {value}")
 
-    # =========================
+    # =====================================
     # SOLICITA STRING
-    # =========================
+    # =====================================
 
     def request_string(self):
+
         payload = bytes([0xA3])
 
         frame = self.build_frame(0x23, payload)
 
         self.uart.send(frame)
 
-        header = self.uart.receive(3)
+        header = self.read_exact(3)
 
         if len(header) != 3:
             print("[ERRO] Resposta inválida")
@@ -146,7 +169,7 @@ class ModbusProtocol:
             print("[ERRO] Tamanho inválido")
             return
 
-        body = self.uart.receive(size + 2)
+        body = self.read_exact(size + 2)
 
         if len(body) != size + 2:
             print("[ERRO] Resposta inválida")
@@ -166,11 +189,12 @@ class ModbusProtocol:
         print("CRC OK")
         print(f"String recebida: {text}")
 
-    # =========================
+    # =====================================
     # ENVIA INT
-    # =========================
+    # =====================================
 
     def send_int(self, value):
+
         payload = (
             bytes([0xB1]) +
             struct.pack('<i', value)
@@ -180,7 +204,7 @@ class ModbusProtocol:
 
         self.uart.send(frame)
 
-        resp = self.uart.receive(8)
+        resp = self.read_exact(8)
 
         if len(resp) != 8:
             print("[ERRO] Resposta inválida")
@@ -198,11 +222,12 @@ class ModbusProtocol:
         print("CRC OK")
         print(f"Resultado recebido: {result}")
 
-    # =========================
+    # =====================================
     # ENVIA FLOAT
-    # =========================
+    # =====================================
 
     def send_float(self, value):
+
         payload = (
             bytes([0xB2]) +
             struct.pack('<f', value)
@@ -212,7 +237,7 @@ class ModbusProtocol:
 
         self.uart.send(frame)
 
-        resp = self.uart.receive(8)
+        resp = self.read_exact(8)
 
         if len(resp) != 8:
             print("[ERRO] Resposta inválida")
@@ -230,11 +255,12 @@ class ModbusProtocol:
         print("CRC OK")
         print(f"Resultado recebido: {result}")
 
-    # =========================
+    # =====================================
     # ENVIA STRING
-    # =========================
+    # =====================================
 
     def send_string(self, text):
+
         encoded = text.encode()
 
         payload = (
@@ -247,7 +273,7 @@ class ModbusProtocol:
 
         self.uart.send(frame)
 
-        header = self.uart.receive(3)
+        header = self.read_exact(3)
 
         if len(header) != 3:
             print("[ERRO] Resposta inválida")
@@ -259,7 +285,7 @@ class ModbusProtocol:
             print("[ERRO] Tamanho inválido")
             return
 
-        body = self.uart.receive(size + 2)
+        body = self.read_exact(size + 2)
 
         if len(body) != size + 2:
             print("[ERRO] Resposta inválida")
