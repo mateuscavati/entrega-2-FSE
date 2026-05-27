@@ -19,23 +19,23 @@ class ModbusProtocol:
     def build_frame(self, function, payload):
 
     # CRC SEM matrícula
-    crc_data = (
-        bytes([self.address]) +
-        bytes([function]) +
-        payload
+        crc_data = (
+            bytes([self.address]) +
+            bytes([function]) +
+            payload
+        )
+
+        crc = crc16(crc_data)
+
+        print(f"CRC Calculado: 0x{crc:04X}")
+
+        frame = (
+            crc_data +
+            self.matricula +
+            struct.pack('<H', crc)
     )
 
-    crc = crc16(crc_data)
-
-    print(f"CRC Calculado: 0x{crc:04X}")
-
-    frame = (
-        crc_data +
-        self.matricula +
-        struct.pack('<H', crc)
-    )
-
-    return frame
+        return frame
 
     def validate_crc(self, data):
         if len(data) < 2:
