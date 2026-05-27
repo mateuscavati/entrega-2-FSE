@@ -29,7 +29,7 @@ class ModbusProtocol:
         print(f"CRC Calculado: 0x{crc:04X}")
 
         # CRC little-endian
-        frame += struct.pack('<H', crc)
+        frame += struct.pack('>H', crc)
 
         return frame
 
