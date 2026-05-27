@@ -8,7 +8,7 @@ class ModbusProtocol:
         self.uart = uart
 
         # TESTAR 0x00 PRIMEIRO
-        self.address = 0x00
+        self.address = 0x01
 
         self.matricula = bytes([0, 0, 6, 9, 9, 1])
 
